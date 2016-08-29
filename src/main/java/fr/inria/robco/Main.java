@@ -1,11 +1,15 @@
 package fr.inria.robco;
 
+import fr.inria.robco.utils.SQLiteConnector;
 import org.apache.commons.cli.*;
+import org.apache.commons.math3.distribution.IntegerDistribution;
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Created by aelie on 25/08/16.
@@ -71,12 +75,21 @@ public class Main {
             System.err.println("No metric specified");
             System.exit(1);
         }
+        SQLiteConnector connectorPEAQ = new SQLiteConnector("/home/aelie/git/Robco/Robco.db", "peaq", "ODG", "REF", "TEST", "ID");
         switch(metric) {
             case PEAQ:
-                System.out.println("MeanODG=" + executePEAQAnalysis(program, reference, test).getMean());
+                double result = executePEAQAnalysis(program, reference, test).getMean();
+                System.out.println("MeanODG=" + result);
+                connectorPEAQ.write(result, reference, test, getUsableId(connectorPEAQ) + 1);
             default:
                 return;
         }
+    }
+
+    static int getUsableId(SQLiteConnector connector) {
+        List<Integer> ids = connector.getIdList();
+        Collections.sort(ids);
+        return ids.get(ids.size() - 1);
     }
 
     static SummaryStatistics executePEAQAnalysis(String program, String reference, String test) {
