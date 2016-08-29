@@ -33,7 +33,7 @@ public class Ssi {
             /// <param name="img1"></param>
             /// <param name="img2"></param>
             /// <returns></returns>
-            internal double Index(Bitmap img1, Bitmap img2)
+            double Index(Bitmap img1, Bitmap img2)
         {
             L = 255; // todo - this assumes 8 bit, but color conversion later is always 8 bit, so ok?
             return ComputeSSIM(ConvertBitmap(img1), ConvertBitmap(img2));
@@ -45,21 +45,16 @@ public class Ssi {
             /// <param name="filename1"></param>
             /// <param name="filename2"></param>
             /// <returns></returns>
-            internal double Index(string filename1, string filename2)
+            double Index(String filename1, String filename2)
         {
             using (var b1 = new Bitmap(filename1))
             using (var b2 = new Bitmap(filename2))
             return Index(b1,b2);
         }
-
-        #region Implementation
-
-        #region Locals
             // default settings, names from paper
-            internal double K1 = 0.01, K2 = 0.03;
-            internal double L = 255;
-            readonly Grid window = Gaussian(11, 1.5);
-        #endregion
+            double K1 = 0.01, K2 = 0.03;
+            double L = 255;
+            Grid window = Gaussian(11, 1.5);
 
             /// <summary>
             /// Compute the SSIM index of two same sized Grids
@@ -71,7 +66,7 @@ public class Ssi {
             {
                 // uses notation from paper
                 // automatic downsampling
-                int f = (int)Math.Max(1, Math.Round(Math.Min(img1.width,img1.height) / 256.0));
+                int f = (int)Math.max(1, Math.round(Math.min(img1.width,img1.height) / 256.0));
                 if (f > 1)
                 { // downsampling by f
                     // use a simple low-pass filter and subsample by f
@@ -80,20 +75,20 @@ public class Ssi {
                 }
 
                 // normalize window - todo - do in window set {}
-                double scale = 1.0/window.Total;
-                Grid.Op((i, j) => window[i, j] * scale, window);
+                double scale = 1.0/window.total();
+                window = Grid.op((i, j) -> window.get(i, j)* scale, window);
 
                 // image statistics
-                var mu1 = Filter(img1, window);
-                var mu2 = Filter(img2, window);
+                Grid mu1 = Filter(img1, window);
+                Grid mu2 = Filter(img2, window);
 
-                var mu1mu2 = mu1 * mu2;
-                var mu1SQ  = mu1 * mu1;
-                var mu2SQ  = mu2 * mu2;
+                Grid mu1mu2 = Grid.multiply(mu1, mu2);
+                Grid mu1SQ  = Grid.multiply(mu1, mu1);
+                Grid mu2SQ  = Grid.multiply(mu2, mu2);
 
-                var sigma12  = Filter(img1 * img2, window) - mu1mu2;
-                var sigma1SQ = Filter(img1 * img1, window) - mu1SQ;
-                var sigma2SQ = Filter(img2 * img2, window) - mu2SQ;
+                Grid sigma12  = Grid.minus(Filter(Grid.multiply(img1, img2), window), mu1mu2);
+                Grid sigma1SQ = Grid.minus(Filter(Grid.multiply(img1, img1), window), mu1SQ);
+                Grid sigma2SQ = Grid.minus(Filter(Grid.multiply(img2, img2), window), mu2SQ);
 
                 // constants from the paper
                 double C1 = K1 * L; C1 *= C1;
