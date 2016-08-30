@@ -1,8 +1,8 @@
 package fr.inria.robco;
 
+import fr.inria.robco.metrics.Ssi;
 import fr.inria.robco.utils.SQLiteConnector;
 import org.apache.commons.cli.*;
-import org.apache.commons.math3.distribution.IntegerDistribution;
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 
 import java.io.BufferedReader;
@@ -16,15 +16,18 @@ import java.util.List;
  */
 public class Main {
     static final int PEAQ = 0;
+    static final int SSIM = 1;
     static int metric;
 
     public static void main(String[] args) {
-        String program = "";
+        String database = "";
+        String programPEAQ = "";
         String reference = "";
         String test = "";
 
         Options optionsMain = new Options();
         optionsMain.addOption("h", "help", false, "display this message");
+        optionsMain.addOption("db", "database", true, "path to the database");
         optionsMain.addOption("p", "peaqb", true, "path to the PEAQb program");
         optionsMain.addOption("r", "reference", true, "path to the reference sound file");
         optionsMain.addOption("t", "test", true, "path to the test sound file");
@@ -36,16 +39,16 @@ public class Main {
         } catch (ParseException e) {
             e.printStackTrace();
         }
-        if(args.length == 0 || commandLine.hasOption("help")) {
+        if (args.length == 0 || commandLine.hasOption("help")) {
             HelpFormatter formatter = new HelpFormatter();
             formatter.printHelp("Robco", optionsMain);
             return;
         }
-        if (commandLine.hasOption("peaqb")) {
-            program = commandLine.getOptionValue("peaqb");
-            System.out.println("Using program " + program);
+        if (commandLine.hasOption("database")) {
+            database = commandLine.getOptionValue("database");
+            System.out.println("Using database " + database);
         } else {
-            System.err.println("No PEAQb program specified");
+            System.err.println("No database file specified");
             System.exit(1);
         }
         if (commandLine.hasOption("reference")) {
@@ -64,8 +67,18 @@ public class Main {
         }
         if (commandLine.hasOption("metric")) {
             String metricParam = commandLine.getOptionValue("metric");
-            if(metricParam.equalsIgnoreCase("PEAQ")) {
+            if (metricParam.equalsIgnoreCase("PEAQ")) {
                 metric = PEAQ;
+                System.out.println("Using metric " + metricParam);
+                if (commandLine.hasOption("peaqb")) {
+                    programPEAQ = commandLine.getOptionValue("peaqb");
+                    System.out.println("Using programPEAQ " + programPEAQ);
+                } else {
+                    System.err.println("No PEAQb programPEAQ specified");
+                    System.exit(1);
+                }
+            } else if (metricParam.equalsIgnoreCase("SSIM")) {
+                metric = SSIM;
                 System.out.println("Using metric " + metricParam);
             } else {
                 System.err.println("Couldn't recognize metric " + metricParam);
@@ -75,12 +88,20 @@ public class Main {
             System.err.println("No metric specified");
             System.exit(1);
         }
-        SQLiteConnector connectorPEAQ = new SQLiteConnector("/home/aelie/git/Robco/Robco.db", "peaq", "ODG", "REF", "TEST", "ID");
-        switch(metric) {
+        double result;
+        switch (metric) {
             case PEAQ:
-                double result = executePEAQAnalysis(program, reference, test).getMean();
+                SQLiteConnector connectorPEAQ = new SQLiteConnector(database, "peaq", "ODG", "REF", "TEST", "ID");
+                result = executePEAQAnalysis(programPEAQ, reference, test).getMean();
                 System.out.println("MeanODG=" + result);
                 connectorPEAQ.write(result, reference, test, getUsableId(connectorPEAQ) + 1);
+                System.exit(0);
+            case SSIM:
+                SQLiteConnector connectorSSIM = new SQLiteConnector(database, "ssim", "VALUE", "REF", "TEST", "ID");
+                result = executeSSIMAnalysis(reference, test);
+                System.out.println("SSIMIndex=" + result);
+                connectorSSIM.write(result, reference, test, getUsableId(connectorSSIM) + 1);
+                System.exit(0);
             default:
                 return;
         }
@@ -89,18 +110,18 @@ public class Main {
     static int getUsableId(SQLiteConnector connector) {
         List<Integer> ids = connector.getIdList();
         Collections.sort(ids);
-        return ids.get(ids.size() - 1);
+        return ids.size() > 0 ? ids.get(ids.size() - 1) : 0;
     }
 
     static SummaryStatistics executePEAQAnalysis(String program, String reference, String test) {
         SummaryStatistics stats = new SummaryStatistics();
         try {
-            System.out.println("Starting analysis, this may take a while...");
+            System.out.println("Starting PEAQ analysis, this may take a while...");
             Process p = Runtime.getRuntime().exec(program + " -r " + reference + " -t " + test);
             BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
             String line = "";
-            while((line = br.readLine()) != null) {
-                if(line.startsWith("ODG")) {
+            while ((line = br.readLine()) != null) {
+                if (line.startsWith("ODG")) {
                     System.out.print("-");
                     stats.addValue(Double.parseDouble(line.split("\\s")[1]));
                 }
@@ -111,5 +132,14 @@ public class Main {
             e.printStackTrace();
         }
         return stats;
+    }
+
+    static double executeSSIMAnalysis(String reference, String test) {
+        double result = -1;
+        System.out.println("Starting SSIM analysis, this may take a while...");
+        Ssi ssi = new Ssi();
+        result = ssi.index(reference, test);
+        System.out.println("Done!");
+        return result;
     }
 }

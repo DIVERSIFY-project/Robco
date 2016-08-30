@@ -10,16 +10,8 @@ import java.io.IOException;
  * Created by aelie on 26/08/16.
  */
 public class Ssi {
-    /// <summary>
-    /// Compute from two linear ushort grayscale images with given size and bitdepth
-    /// </summary>
-    /// <param name="img1">Image 1 data</param>
-    /// <param name="img2">Image 2 data</param>
-    /// <param name="w">width</param>
-    /// <param name="h">height</param>
-    /// <param name="depth">Bit depth (1-16)</param>
-    /// <returns></returns>
-    double index(short[] img1, short[] img2, int w, int h, int depth) {
+
+    public double index(short[] img1, short[] img2, int w, int h, int depth) {
         L = (1 << depth) - 1;
         return computeSSIM(convertLinear(img1, w, h), convertLinear(img2, w, h));
     }
@@ -30,18 +22,12 @@ public class Ssi {
     /// <param name="img1"></param>
     /// <param name="img2"></param>
     /// <returns></returns>
-    double index(BufferedImage img1, BufferedImage img2) {
+    public double index(BufferedImage img1, BufferedImage img2) {
         L = 255; // todo - this assumes 8 bit, but color conversion later is always 8 bit, so ok?
         return computeSSIM(convertBitmap(img1), convertBitmap(img2));
     }
 
-    /// <summary>
-    /// Take two filenames
-    /// </summary>
-    /// <param name="filename1"></param>
-    /// <param name="filename2"></param>
-    /// <returns></returns>
-    double index(String filename1, String filename2) {
+    public double index(String filename1, String filename2) {
         BufferedImage b1 = null;
         BufferedImage b2 = null;
         try {
@@ -53,23 +39,13 @@ public class Ssi {
         return index(b1, b2);
     }
 
-    // default settings, names from paper
     double K1 = 0.01, K2 = 0.03;
     double L = 255;
     Grid window = gaussian(11, 1.5);
 
-    /// <summary>
-    /// Compute the SSIM index of two same sized Grids
-    /// </summary>
-    /// <param name="img1">The first Grid</param>
-    /// <param name="img2">The second Grid</param>
-    /// <returns>SSIM index</returns>
     double computeSSIM(Grid img1, Grid img2) {
-        // uses notation from paper
-        // automatic downsampling
         int f = (int) Math.max(1, Math.round(Math.min(img1.width, img1.height) / 256.0));
-        if (f > 1) { // downsampling by f
-            // use a simple low-pass filter and subsample by f
+        if (f > 1) {
             img1 = subSample(img1, f);
             img2 = subSample(img2, f);
         }
@@ -120,15 +96,8 @@ public class Ssi {
 
         // average all values
         return ssim_map.total() / (ssim_map.width * ssim_map.height);
-    } // computeSSIM
+    }
 
-
-    /// <summary>
-    /// Create a gaussian window of the given size and standard deviation
-    /// </summary>
-    /// <param name="size">Odd number</param>
-    /// <param name="sigma">gaussian std deviation</param>
-    /// <returns></returns>
     static Grid gaussian(int size, double sigma) {
         Grid filter = new Grid(size, size);
         double s2 = sigma * sigma;
@@ -146,10 +115,6 @@ public class Ssi {
         return filter;
     }
 
-    /// <summary>
-    /// subsample a grid by step size, averaging each box into the result value
-    /// </summary>
-    /// <returns></returns>
     static Grid subSample(Grid img, int skip) {
         int w = img.width;
         int h = img.height;
@@ -166,11 +131,6 @@ public class Ssi {
         return ans;
     }
 
-    /// <summary>
-    /// Apply filter, return only center part.
-    /// C = filter(A,B) should be same as matlab filter2( ,'valid')
-    /// </summary>
-    /// <returns></returns>
     static Grid filter(Grid a, Grid b) {
 /*#if false
                 int ax = a.width, ay = a.height;
@@ -205,36 +165,18 @@ public class Ssi {
 //#endif
     }
 
-    /// <summary>
-    /// componentwise s*a[i,j]+c->a[i,j]
-    /// </summary>
-    /// <param name="s"></param>
-    /// <param name="a"></param>
-    /// <param name="c"></param>
-    /// <returns></returns>
     static Grid linear(double s, Grid a, double c) {
         return Grid.op((i, j) -> s * a.get(i, j) + c, new Grid(a.width, a.height));
     }
 
-    /// <summary>
-    /// convert image from 1D ushort to Grid
-    /// </summary>
-    /// <param name="img"></param>
-    /// <param name="w"></param>
-    /// <param name="h"></param>
-    /// <returns></returns>
     static Grid convertLinear(short[] img, int w, int h) {
         return Grid.op((i, j) -> img[i + j * w], new Grid(w, h));
     }
 
-    /// <summary>
-    /// Convert a Bitmap to a grayscale Grid
-    /// </summary>
-    /// <returns></returns>
     static Grid convertBitmap(BufferedImage bmp) {
         return Grid.op((i, j) -> {
-            Color c = new Color(bmp.getColorModel().getRed(bmp.getRGB(i, j)), bmp.getColorModel().getGreen(bmp.getRGB(i, j)), bmp.getColorModel().getBlue(bmp.getRGB(i, j)));
+            Color c = new Color(bmp.getRGB(i, j) >> 16 & 0xff, bmp.getRGB(i, j) >> 8 & 0xff, bmp.getRGB(i, j)& 0xff);
             return 0.3 * c.getRed() + 0.59 * c.getGreen() + 0.11 * c.getBlue();
         }, new Grid(bmp.getWidth(), bmp.getHeight()));
     }
-} // class SSIM
+}
