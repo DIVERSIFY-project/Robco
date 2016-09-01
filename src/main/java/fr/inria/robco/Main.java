@@ -5,11 +5,10 @@ import fr.inria.robco.utils.SQLiteConnector;
 import org.apache.commons.cli.*;
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
 
 /**
  * Created by aelie on 25/08/16.
@@ -19,11 +18,15 @@ public class Main {
     static final int SSIM = 1;
     static int metric;
 
+    static String resultPath = "";
+    static String peaqbPath = "";
+    static String dbPath = "";
+
     public static void main(String[] args) {
-        String database = "";
-        String programPEAQ = "";
         String reference = "";
         String test = "";
+
+        getProperties();
 
         Options optionsMain = new Options();
         optionsMain.addOption("h", "help", false, "display this message");
@@ -45,8 +48,8 @@ public class Main {
             return;
         }
         if (commandLine.hasOption("database")) {
-            database = commandLine.getOptionValue("database");
-            System.out.println("Using database " + database);
+            dbPath = commandLine.getOptionValue("database");
+            System.out.println("Using database " + dbPath);
         } else {
             System.err.println("No database file specified");
             System.exit(1);
@@ -71,8 +74,8 @@ public class Main {
                 metric = PEAQ;
                 System.out.println("Using metric " + metricParam);
                 if (commandLine.hasOption("peaqb")) {
-                    programPEAQ = commandLine.getOptionValue("peaqb");
-                    System.out.println("Using programPEAQ " + programPEAQ);
+                    peaqbPath = commandLine.getOptionValue("peaqb");
+                    System.out.println("Using programPEAQ " + peaqbPath);
                 } else {
                     System.err.println("No PEAQb programPEAQ specified");
                     System.exit(1);
@@ -104,6 +107,29 @@ public class Main {
                 System.exit(0);
             default:
                 return;
+        }
+    }
+
+    static void getProperties() {
+        Properties properties = new Properties();
+        InputStream input = null;
+
+        try {
+            input = new FileInputStream("config.properties");
+            properties.load(input);
+            resultPath = properties.getProperty("resultPath");
+            peaqbPath = properties.getProperty("peaqbPath");
+            dbPath = properties.getProperty("dbPath");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        } finally {
+            if (input != null) {
+                try {
+                    input.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 
