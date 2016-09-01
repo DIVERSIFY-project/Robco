@@ -18,6 +18,10 @@ public class Main {
     static final int SSIM = 1;
     static int metric;
 
+    static final int LINUX = 0;
+    static final int WINDOWS = 1;
+    static int system;
+
     static String resultPath = "";
     static String peaqbPath = "";
     static String dbPath = "";
@@ -49,44 +53,43 @@ public class Main {
         }
         if (commandLine.hasOption("database")) {
             dbPath = commandLine.getOptionValue("database");
-            System.out.println("Using database " + dbPath);
         } else {
             System.err.println("No database file specified");
             System.exit(1);
         }
+        System.out.println("Using database " + dbPath);
         if (commandLine.hasOption("reference")) {
             reference = commandLine.getOptionValue("reference");
-            System.out.println("Using reference " + reference);
         } else {
             System.err.println("No reference file specified");
             System.exit(1);
         }
+        System.out.println("Using reference " + reference);
         if (commandLine.hasOption("test")) {
             test = commandLine.getOptionValue("test");
-            System.out.println("Using test " + test);
         } else {
             System.err.println("No test file specified");
             System.exit(1);
         }
+        System.out.println("Using test " + test);
         if (commandLine.hasOption("metric")) {
             String metricParam = commandLine.getOptionValue("metric");
             if (metricParam.equalsIgnoreCase("PEAQ")) {
                 metric = PEAQ;
-                System.out.println("Using metric " + metricParam);
                 if (commandLine.hasOption("peaqb")) {
                     peaqbPath = commandLine.getOptionValue("peaqb");
-                    System.out.println("Using programPEAQ " + peaqbPath);
                 } else {
                     System.err.println("No PEAQb programPEAQ specified");
                     System.exit(1);
                 }
+                System.out.println("Using programPEAQ " + peaqbPath);
             } else if (metricParam.equalsIgnoreCase("SSIM")) {
                 metric = SSIM;
-                System.out.println("Using metric " + metricParam);
             } else {
                 System.err.println("Couldn't recognize metric " + metricParam);
                 System.exit(1);
             }
+            System.out.println("Using metric " + metricParam);
         } else {
             System.err.println("No metric specified");
             System.exit(1);
@@ -94,13 +97,13 @@ public class Main {
         double result;
         switch (metric) {
             case PEAQ:
-                SQLiteConnector connectorPEAQ = new SQLiteConnector(database, "peaq", "ODG", "REF", "TEST", "ID");
-                result = executePEAQAnalysis(programPEAQ, reference, test).getMean();
+                SQLiteConnector connectorPEAQ = new SQLiteConnector(dbPath, "peaq", "ODG", "REF", "TEST", "ID");
+                result = executePEAQAnalysis(peaqbPath, reference, test).getMean();
                 System.out.println("MeanODG=" + result);
                 connectorPEAQ.write(result, reference, test, getUsableId(connectorPEAQ) + 1);
                 System.exit(0);
             case SSIM:
-                SQLiteConnector connectorSSIM = new SQLiteConnector(database, "ssim", "VALUE", "REF", "TEST", "ID");
+                SQLiteConnector connectorSSIM = new SQLiteConnector(dbPath, "ssim", "VALUE", "REF", "TEST", "ID");
                 result = executeSSIMAnalysis(reference, test);
                 System.out.println("SSIMIndex=" + result);
                 connectorSSIM.write(result, reference, test, getUsableId(connectorSSIM) + 1);
@@ -111,11 +114,16 @@ public class Main {
     }
 
     static void getProperties() {
+        if(System.getProperty("os.name").contains("Linux")) {
+            system = LINUX;
+        } else {
+            system = WINDOWS;
+        }
         Properties properties = new Properties();
         InputStream input = null;
 
         try {
-            input = new FileInputStream("config.properties");
+            input = new FileInputStream(system == LINUX ? "configLinux.properties" : "configWindows.properties");
             properties.load(input);
             resultPath = properties.getProperty("resultPath");
             peaqbPath = properties.getProperty("peaqbPath");
