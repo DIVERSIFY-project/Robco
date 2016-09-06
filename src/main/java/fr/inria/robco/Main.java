@@ -6,9 +6,8 @@ import org.apache.commons.cli.*;
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 
 import java.io.*;
-import java.util.Collections;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Created by aelie on 25/08/16.
@@ -16,6 +15,7 @@ import java.util.Properties;
 public class Main {
     static final int PEAQ = 0;
     static final int SSIM = 1;
+    static final int[] metrics = {PEAQ, SSIM};
     static int metric;
 
     static final int LINUX = 0;
@@ -27,18 +27,18 @@ public class Main {
     static String dbPath = "";
 
     public static void main(String[] args) {
-        String reference = "";
-        String test = "";
+        //String reference = "";
+        //String test = "";
 
         getProperties();
 
         Options optionsMain = new Options();
         optionsMain.addOption("h", "help", false, "display this message");
         optionsMain.addOption("db", "database", true, "path to the database");
-        optionsMain.addOption("p", "peaqb", true, "path to the PEAQb program");
-        optionsMain.addOption("r", "reference", true, "path to the reference sound file");
-        optionsMain.addOption("t", "test", true, "path to the test sound file");
-        optionsMain.addOption("m", "metric", true, "name of the metric to be used");
+        //optionsMain.addOption("p", "peaqb", true, "path to the PEAQb program");
+        //optionsMain.addOption("r", "reference", true, "path to the reference sound file");
+        //optionsMain.addOption("t", "test", true, "path to the test sound file");
+        //optionsMain.addOption("m", "metric", true, "name of the metric to be used");
         CommandLineParser commandLineParser = new DefaultParser();
         CommandLine commandLine = null;
         try {
@@ -58,7 +58,7 @@ public class Main {
             System.exit(1);
         }
         System.out.println("Using database " + dbPath);
-        if (commandLine.hasOption("reference")) {
+        /*if (commandLine.hasOption("reference")) {
             reference = commandLine.getOptionValue("reference");
         } else {
             System.err.println("No reference file specified");
@@ -71,8 +71,8 @@ public class Main {
             System.err.println("No test file specified");
             System.exit(1);
         }
-        System.out.println("Using test " + test);
-        if (commandLine.hasOption("metric")) {
+        System.out.println("Using test " + test);*/
+        /*if (commandLine.hasOption("metric")) {
             String metricParam = commandLine.getOptionValue("metric");
             if (metricParam.equalsIgnoreCase("PEAQ")) {
                 metric = PEAQ;
@@ -93,8 +93,8 @@ public class Main {
         } else {
             System.err.println("No metric specified");
             System.exit(1);
-        }
-        double result;
+        }*/
+        /*double result;
         switch (metric) {
             case PEAQ:
                 SQLiteConnector connectorPEAQ = new SQLiteConnector(dbPath, "peaq", "ODG", "REF", "TEST", "ID");
@@ -110,11 +110,80 @@ public class Main {
                 System.exit(0);
             default:
                 return;
+        }*/
+        processResults(resultPath);
+    }
+
+    static void processResults(String resultPath) {
+        if (new File(resultPath).listFiles() == null) {
+            System.err.println("No file in resultPath " + resultPath);
+        }
+        File resultFile;
+        Optional<File> referenceFolder;
+        Optional<File> testFolder;
+        List<String> references;
+        List<String> tests;
+        for (int metric : metrics) {
+            double result;
+            switch (metric) {
+                case PEAQ:
+                    resultFile = new File(resultPath + File.separator + "peaq");
+                    if (!(referenceFolder = Arrays.asList(resultFile.listFiles()).stream().filter(f -> f.isDirectory() && f.getName().equalsIgnoreCase("reference")).findFirst()).isPresent()) {
+                        System.err.println("Could not find reference folder in resultPath " + resultPath);
+                    }
+                    if (referenceFolder.get().listFiles() == null) {
+                        System.err.println("No file in reference folder in resultPath " + resultPath);
+                    }
+                    references = Arrays.asList(referenceFolder.get().listFiles()).stream().map(File::getAbsolutePath).collect(Collectors.toList());
+                    if (!(testFolder = Arrays.asList(resultFile.listFiles()).stream().filter(f -> f.isDirectory() && f.getName().equalsIgnoreCase("test")).findFirst()).isPresent()) {
+                        System.err.println("Could not find test folder in resultPath " + resultPath);
+                    }
+                    if (testFolder.get().listFiles() == null) {
+                        System.err.println("No file in test folder in resultPath " + resultPath);
+                    }
+                    tests = Arrays.asList(testFolder.get().listFiles()).stream().map(File::getAbsolutePath).collect(Collectors.toList());
+                    for (String reference : references) {
+                        for (String test : tests) {
+                            SQLiteConnector connectorPEAQ = new SQLiteConnector(dbPath, "peaq", "ODG", "REF", "TEST", "ID");
+                            result = executePEAQAnalysis(peaqbPath, reference, test).getMean();
+                            connectorPEAQ.write(result, reference, test, getUsableId(connectorPEAQ) + 1);
+                            System.out.println("reference=" + reference + "|test=" + test + "|metric=" + metric + "|value=" + result);
+                        }
+                    }
+                    break;
+                case SSIM:
+                    resultFile = new File(resultPath + File.separator + "ssim");
+                    if (!(referenceFolder = Arrays.asList(resultFile.listFiles()).stream().filter(f -> f.isDirectory() && f.getName().equalsIgnoreCase("reference")).findFirst()).isPresent()) {
+                        System.err.println("Could not find reference folder in resultPath " + resultPath);
+                    }
+                    if (referenceFolder.get().listFiles() == null) {
+                        System.err.println("No file in reference folder in resultPath " + resultPath);
+                    }
+                    references = Arrays.asList(referenceFolder.get().listFiles()).stream().map(File::getAbsolutePath).collect(Collectors.toList());
+                    if (!(testFolder = Arrays.asList(resultFile.listFiles()).stream().filter(f -> f.isDirectory() && f.getName().equalsIgnoreCase("test")).findFirst()).isPresent()) {
+                        System.err.println("Could not find test folder in resultPath " + resultPath);
+                    }
+                    if (testFolder.get().listFiles() == null) {
+                        System.err.println("No file in test folder in resultPath " + resultPath);
+                    }
+                    tests = Arrays.asList(testFolder.get().listFiles()).stream().map(File::getAbsolutePath).collect(Collectors.toList());
+                    for (String reference : references) {
+                        for (String test : tests) {
+                            SQLiteConnector connectorSSIM = new SQLiteConnector(dbPath, "ssim", "VALUE", "REF", "TEST", "ID");
+                            result = executeSSIMAnalysis(reference, test);
+                            connectorSSIM.write(result, reference, test, getUsableId(connectorSSIM) + 1);
+                            System.out.println("reference=" + reference + "|test=" + test + "|metric=" + metric + "|value=" + result);
+                        }
+                    }
+                    break;
+                default:
+                    return;
+            }
         }
     }
 
     static void getProperties() {
-        if(System.getProperty("os.name").contains("Linux")) {
+        if (System.getProperty("os.name").contains("Linux")) {
             system = LINUX;
         } else {
             system = WINDOWS;
@@ -125,9 +194,12 @@ public class Main {
         try {
             input = new FileInputStream(system == LINUX ? "configLinux.properties" : "configWindows.properties");
             properties.load(input);
-            resultPath = properties.getProperty("resultPath");
-            peaqbPath = properties.getProperty("peaqbPath");
-            dbPath = properties.getProperty("dbPath");
+            resultPath = properties.getProperty("resultpath");
+            System.out.println("Using result path " + resultPath);
+            peaqbPath = properties.getProperty("peaqbpath");
+            System.out.println("Using PEAQb path " + peaqbPath);
+            dbPath = properties.getProperty("dbpath");
+            System.out.println("Using DB path " + dbPath);
         } catch (IOException ex) {
             ex.printStackTrace();
         } finally {
@@ -151,6 +223,7 @@ public class Main {
         SummaryStatistics stats = new SummaryStatistics();
         try {
             System.out.println("Starting PEAQ analysis, this may take a while...");
+            System.out.println(program + " -r " + reference + " -t " + test);
             Process p = Runtime.getRuntime().exec(program + " -r " + reference + " -t " + test);
             BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
             String line = "";
