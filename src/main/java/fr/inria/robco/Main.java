@@ -7,7 +7,6 @@ import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 
 import java.io.*;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Created by aelie on 25/08/16.
@@ -123,56 +122,52 @@ public class Main {
         Optional<File> testFolder;
         List<String> references;
         List<String> tests;
+        String reference;
+        String test;
         for (int metric : metrics) {
             double result;
             switch (metric) {
                 case PEAQ:
                     resultFile = new File(resultPath + File.separator + "peaq");
-                    if (!(referenceFolder = Arrays.asList(resultFile.listFiles()).stream().filter(f -> f.isDirectory() && f.getName().equalsIgnoreCase("reference")).findFirst()).isPresent()) {
-                        System.err.println("Could not find reference folder in resultPath " + resultPath);
-                    }
-                    if (referenceFolder.get().listFiles() == null) {
-                        System.err.println("No file in reference folder in resultPath " + resultPath);
-                    }
-                    references = Arrays.asList(referenceFolder.get().listFiles()).stream().map(File::getAbsolutePath).collect(Collectors.toList());
-                    if (!(testFolder = Arrays.asList(resultFile.listFiles()).stream().filter(f -> f.isDirectory() && f.getName().equalsIgnoreCase("test")).findFirst()).isPresent()) {
-                        System.err.println("Could not find test folder in resultPath " + resultPath);
-                    }
-                    if (testFolder.get().listFiles() == null) {
-                        System.err.println("No file in test folder in resultPath " + resultPath);
-                    }
-                    tests = Arrays.asList(testFolder.get().listFiles()).stream().map(File::getAbsolutePath).collect(Collectors.toList());
-                    for (String reference : references) {
-                        for (String test : tests) {
-                            SQLiteConnector connectorPEAQ = new SQLiteConnector(dbPath, "peaq", "ODG", "REF", "TEST", "ID");
-                            result = executePEAQAnalysis(peaqbPath, reference, test).getMean();
-                            connectorPEAQ.write(result, reference, test, getUsableId(connectorPEAQ) + 1);
-                            System.out.println("reference=" + reference + "|test=" + test + "|metric=" + metric + "|value=" + result);
+                    for (File experiment : resultFile.listFiles()) {
+                        if (experiment.isDirectory()) {
+                            if (experiment.listFiles().length == 2) {
+                                try {
+                                    if ((reference = Arrays.asList(experiment.listFiles()).stream().filter(f -> f.getName().startsWith("ref_")).findAny().get().getAbsolutePath()) != null) {
+                                        test = Arrays.asList(experiment.listFiles()).stream().filter(f -> !f.getName().startsWith("ref_")).findAny().get().getAbsolutePath();
+                                        SQLiteConnector connectorPEAQ = new SQLiteConnector(dbPath, "peaq", "ODG", "REF", "TEST", "ID");
+                                        result = executePEAQAnalysis(peaqbPath, reference, test).getMean();
+                                        connectorPEAQ.write(result, reference, test, getUsableId(connectorPEAQ) + 1);
+                                        System.out.println("reference=" + reference + "|test=" + test + "|metric=" + metric + "|value=" + result);
+                                    } else {
+                                        System.err.println("Could not find reference file in folder " + experiment.getAbsolutePath());
+                                    }
+                                } catch (NoSuchElementException nsee) {
+                                    nsee.printStackTrace();
+                                }
+                            } else {
+                                System.err.println("Experiment folders need to contain exactly 2 files, not the case in " + experiment.getAbsolutePath());
+                            }
                         }
                     }
                     break;
                 case SSIM:
                     resultFile = new File(resultPath + File.separator + "ssim");
-                    if (!(referenceFolder = Arrays.asList(resultFile.listFiles()).stream().filter(f -> f.isDirectory() && f.getName().equalsIgnoreCase("reference")).findFirst()).isPresent()) {
-                        System.err.println("Could not find reference folder in resultPath " + resultPath);
-                    }
-                    if (referenceFolder.get().listFiles() == null) {
-                        System.err.println("No file in reference folder in resultPath " + resultPath);
-                    }
-                    references = Arrays.asList(referenceFolder.get().listFiles()).stream().map(File::getAbsolutePath).collect(Collectors.toList());
-                    if (!(testFolder = Arrays.asList(resultFile.listFiles()).stream().filter(f -> f.isDirectory() && f.getName().equalsIgnoreCase("test")).findFirst()).isPresent()) {
-                        System.err.println("Could not find test folder in resultPath " + resultPath);
-                    }
-                    if (testFolder.get().listFiles() == null) {
-                        System.err.println("No file in test folder in resultPath " + resultPath);
-                    }
-                    tests = Arrays.asList(testFolder.get().listFiles()).stream().map(File::getAbsolutePath).collect(Collectors.toList());
-                    for (String reference : references) {
-                        for (String test : tests) {
-                            SQLiteConnector connectorSSIM = new SQLiteConnector(dbPath, "ssim", "VALUE", "REF", "TEST", "ID");
-                            result = executeSSIMAnalysis(reference, test);
-                            connectorSSIM.write(result, reference, test, getUsableId(connectorSSIM) + 1);
-                            System.out.println("reference=" + reference + "|test=" + test + "|metric=" + metric + "|value=" + result);
+                    for (File experiment : resultFile.listFiles()) {
+                        if (experiment.isDirectory()) {
+                            if (experiment.listFiles().length == 2) {
+                                if ((reference = Arrays.asList(experiment.listFiles()).stream().filter(f -> f.getName().startsWith("ref_")).findAny().get().getAbsolutePath()) != null) {
+                                    test = Arrays.asList(experiment.listFiles()).stream().filter(f -> !f.getName().startsWith("ref_")).findAny().get().getAbsolutePath();
+                                    SQLiteConnector connectorSSIM = new SQLiteConnector(dbPath, "ssim", "VALUE", "REF", "TEST", "ID");
+                                    result = executeSSIMAnalysis(reference, test);
+                                    connectorSSIM.write(result, reference, test, getUsableId(connectorSSIM) + 1);
+                                    System.out.println("reference=" + reference + "|test=" + test + "|metric=" + metric + "|value=" + result);
+                                } else {
+                                    System.err.println("Could not find reference file in folder " + experiment.getAbsolutePath());
+                                }
+                            } else {
+                                System.err.println("Experiment folders need to contain exactly 2 files, not the case in " + experiment.getAbsolutePath());
+                            }
                         }
                     }
                     break;
